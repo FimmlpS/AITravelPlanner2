@@ -161,13 +161,13 @@ export const generateTravelPlan = createAsyncThunk(
           .select();
 
         if (error) {
-          console.warn('Supabase保存失败，使用模拟数据：', error.message);
+          console.warn('Supabase保存失败，使用模拟数据模式：', error.message);
           return mockPlan; // 返回模拟数据
         }
 
         return data[0] as TravelPlan;
       } catch (supabaseError) {
-        console.warn('Supabase操作异常，使用模拟数据：', (supabaseError as Error).message);
+        console.warn('Supabase操作异常，使用模拟数据模式：', (supabaseError as Error).message);
         return mockPlan; // 返回模拟数据
       }
     } catch (error) {
@@ -179,7 +179,7 @@ export const generateTravelPlan = createAsyncThunk(
 // 获取用户的所有行程计划
 export const fetchTravelPlans = createAsyncThunk(
   'travel/fetchPlans',
-  async (_, { rejectWithValue }) => {
+  async (_, {}) => {
     try {
       const { data, error } = await supabase
         .from('travel_plans')
@@ -211,11 +211,13 @@ export const updateTravelPlan = createAsyncThunk(
         .select();
 
       if (error) {
-        throw new Error(error.message);
+        console.warn('Supabase更新失败，返回更新后的本地对象：', error.message);
+        return { id, ...updates, updatedAt: new Date().toISOString() } as TravelPlan; // 返回更新后的对象
       }
 
       return data[0] as TravelPlan;
     } catch (error) {
+      console.warn('Supabase更新操作异常：', (error as Error).message);
       return rejectWithValue((error as Error).message);
     }
   }
@@ -224,7 +226,7 @@ export const updateTravelPlan = createAsyncThunk(
 // 删除行程计划
 export const deleteTravelPlan = createAsyncThunk(
   'travel/deletePlan',
-  async (id: string, { rejectWithValue }) => {
+  async (id: string, {}) => {
     try {
       const { error } = await supabase
         .from('travel_plans')
@@ -232,12 +234,13 @@ export const deleteTravelPlan = createAsyncThunk(
         .eq('id', id);
 
       if (error) {
-        throw new Error(error.message);
+        console.warn('Supabase删除失败，返回ID以更新本地状态：', error.message);
       }
 
-      return id;
+      return id; // 无论如何都返回ID以更新本地状态
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      console.warn('Supabase删除操作异常：', (error as Error).message);
+      return id; // 即使出错也返回ID以更新本地状态
     }
   }
 );
