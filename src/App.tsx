@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout, Menu, Typography, message } from 'antd'
 import { HomeOutlined, CalendarOutlined, DollarOutlined, UserOutlined, SettingOutlined } from '@ant-design/icons'
 import './App.css'
 import TravelPlannerForm from './components/TravelPlannerForm'
 import TravelPlanDetail from './components/TravelPlanDetail'
+import AuthPage from './pages/AuthPage'
 import { useAppDispatch, useAppSelector } from './store'
 import { fetchTravelPlans } from './store/slices/travelSlice'
+import { fetchCurrentUser, logoutUser } from './store/slices/userSlice'
 
 const { Header, Content, Sider } = Layout
 const { Title } = Typography
@@ -14,14 +17,23 @@ function App() {
   const [activeTab, setActiveTab] = useState('1');
   const dispatch = useAppDispatch();
   const { currentPlan } = useAppSelector(state => state.travel);
+  const { isAuthenticated, user } = useAppSelector(state => state.user);
 
-  // 初始化时加载用户行程
+  // 初始化时检查用户登录状态和加载数据
   useEffect(() => {
-    dispatch(fetchTravelPlans()).unwrap()
-      .catch(error => {
-        console.error('加载行程失败:', error);
-      });
+    // 检查用户登录状态
+    dispatch(fetchCurrentUser());
   }, [dispatch]);
+
+  // 当用户已认证时加载行程
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchTravelPlans()).unwrap()
+        .catch(error => {
+          console.error('加载行程失败:', error);
+        });
+    }
+  }, [dispatch, isAuthenticated]);
 
   // 处理行程生成后的回调
   const handlePlanGenerated = () => {
@@ -34,12 +46,22 @@ function App() {
     setActiveTab(key);
   };
 
+  // 处理登出
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser()).unwrap();
+      message.success('已成功登出');
+    } catch (error) {
+      message.error('登出失败，请稍后重试');
+    }
+  };
+
   // 渲染主内容区域
   const renderMainContent = () => {
     if (activeTab === '1') {
       return (
         <div className="content-container">
-          <Title level={2}>欢迎使用AI旅行规划师</Title>
+          <Title level={2}>欢迎使用AI旅行规划师，{user?.name || user?.email}</Title>
           <p>请输入您的旅行需求，AI将为您生成个性化的旅行计划。</p>
           
           {/* 行程规划表单 */}
@@ -78,16 +100,31 @@ function App() {
     } else if (activeTab === '4') {
       return (
         <div className="content-container">
-          <Title level={2}>设置</Title>
-          <p>这里将显示应用设置。</p>
-          {/* 后续将实现设置功能 */}
+          <Title level={2}>个人中心</Title>
+          <div>
+            <h3>用户信息</h3>
+            <p>用户名：{user?.name}</p>
+            <p>邮箱：{user?.email}</p>
+            <button type="button" className="ant-btn ant-btn-primary ant-btn-dangerous" onClick={handleLogout}>
+              登出
+            </button>
+          </div>
         </div>
       );
     }
     return null;
   };
 
-  return (
+  // 认证路由组件
+  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+    if (!isAuthenticated) {
+      return <Navigate to="/auth" replace />;
+    }
+    return <>{children}</>;
+  };
+
+  // 主应用组件
+  const MainApp = () => (
     <Layout className="app-layout">
       <Header className="app-header">
         <div className="logo">AI旅行规划师</div>
@@ -115,7 +152,7 @@ function App() {
               { key: '1', icon: <HomeOutlined />, label: '快速规划' },
               { key: '2', icon: <CalendarOutlined />, label: '我的行程' },
               { key: '3', icon: <DollarOutlined />, label: '费用统计' },
-              { key: '4', icon: <SettingOutlined />, label: '设置' },
+              { key: '4', icon: <UserOutlined />, label: '个人中心' },
             ]}
           />
         </Sider>
@@ -126,6 +163,31 @@ function App() {
         </Layout>
       </Layout>
     </Layout>
+  );
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/auth" element={<AuthPage />} />
+        <Route 
+          path="/app/*" 
+          element={
+            <ProtectedRoute>
+              <MainApp />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/*" 
+          element={
+            <ProtectedRoute>
+              <MainApp />
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="/" element={<Navigate to="/auth" replace />} />
+      </Routes>
+    </Router>
   )
 }
 

@@ -6,3 +6,6 @@ xfyun.api-key=715b3134ff0ed8d8ccea7f70870007c4
 xfyun.api-secret=YjNjNDQxMGU3M2ZkZWQ4NDcyN2VjMWJi
 
 gaode.map.key=5612816083a872219d455ef9ed276e09
+
+# 其他API密钥
+阿里云百炼key=sk-495053ef710c42fa860cdab280c0dc1b
