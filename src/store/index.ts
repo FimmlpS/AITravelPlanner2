@@ -1,9 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch, useSelector } from 'react-redux';
+import travelReducer from './slices/travelSlice';
 
 // 未来会添加更多的slice
 const store = configureStore({
   reducer: {
+    travel: travelReducer,
     // 这里将添加各个功能模块的reducer
   },
 });

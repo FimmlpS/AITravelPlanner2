@@ -1,11 +1,18 @@
 import { Layout, Menu, Typography } from 'antd'
 import { HomeOutlined, CalendarOutlined, DollarOutlined, UserOutlined, SettingOutlined } from '@ant-design/icons'
 import './App.css'
+import TravelPlannerForm from './components/TravelPlannerForm'
 
 const { Header, Content, Sider } = Layout
 const { Title } = Typography
 
 function App() {
+  // 处理行程生成后的回调
+  const handlePlanGenerated = () => {
+    // 这里可以添加行程生成后的逻辑，例如跳转到行程详情页
+    console.log('行程已生成');
+  };
+
   return (
     <Layout className="app-layout">
       <Header className="app-header">
@@ -41,7 +48,9 @@ function App() {
             <div className="content-container">
               <Title level={2}>欢迎使用AI旅行规划师</Title>
               <p>请输入您的旅行需求，AI将为您生成个性化的旅行计划。</p>
-              {/* 这里将放置主要内容区域 */}
+              
+              {/* 行程规划表单 */}
+              <TravelPlannerForm onPlanGenerated={handlePlanGenerated} />
             </div>
           </Content>
         </Layout>

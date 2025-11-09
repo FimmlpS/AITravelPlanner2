@@ -1,0 +1,8 @@
+supabase.url=https://cimjyjeqdkaelzrjtrru.supabase.co
+supabase.anon.key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpbWp5amVxZGthZWx6cmp0cnJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3MDkwNTIsImV4cCI6MjA3ODI4NTA1Mn0.YUlf3QW4VzeM_-JIs3MYo93RWqUPjgeIQN79yXG8g0o
+
+xfyun.app-id=69ae1d1f
+xfyun.api-key=715b3134ff0ed8d8ccea7f70870007c4
+xfyun.api-secret=YjNjNDQxMGU3M2ZkZWQ4NDcyN2VjMWJi
+
+gaode.map.key=5612816083a872219d455ef9ed276e09
