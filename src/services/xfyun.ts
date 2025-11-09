@@ -1,7 +1,7 @@
 // 科大讯飞API配置
-const APPID = import.meta.env.VITE_XUNFEI_APPID;
-const API_KEY = import.meta.env.VITE_XUNFEI_API_KEY;
-const API_SECRET = import.meta.env.VITE_XUNFEI_API_SECRET;
+  const APPID = import.meta.env.VITE_XFYUN_APP_ID || '69ae1d1f';
+  const API_KEY = import.meta.env.VITE_XFYUN_API_KEY || '715b3134ff0ed8d8ccea7f70870007c4';
+  const API_SECRET = import.meta.env.VITE_XFYUN_API_SECRET || 'YjNjNDQxMGU3M2ZkZWQ4NDcyN2VjMWJi';
 
 /**
  * 生成WebSocket连接的认证参数

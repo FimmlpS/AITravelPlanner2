@@ -11,19 +11,21 @@
 }
 
 .app-header .logo {
-  font-size: 20px;
-  font-weight: bold;
   color: white;
-  margin-right: 24px;
+  font-size: 24px;
+  font-weight: bold;
+  margin-right: 40px;
+  white-space: nowrap;
 }
 
 .app-sider {
   background-color: #f0f2f5;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
 }
 
 .app-content-wrapper {
   padding: 24px;
-  background-color: #f0f2f5;
+  background-color: #f5f5f5;
   min-height: calc(100vh - 64px);
 }
 
@@ -31,12 +33,73 @@
   background-color: white;
   padding: 24px;
   border-radius: 8px;
-  min-height: 280px;
+  min-height: 80vh;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
 }
 
 .content-container {
-  max-width: 1200px;
+  max-width: 1000px;
   margin: 0 auto;
+}
+
+/* 行程表单样式 */
+.travel-planner-form {
+  margin-bottom: 24px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.voice-input-section {
+  margin-bottom: 16px;
+}
+
+.recognized-text {
+  margin-left: 16px;
+  padding: 8px 16px;
+  background-color: #f0f2f5;
+  border-radius: 4px;
+  max-width: 600px;
+  word-break: break-word;
+}
+
+/* 行程详情样式 */
+.travel-plan-detail {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.plan-header-card {
+  margin-bottom: 24px;
+  border-radius: 8px;
+}
+
+.daily-itinerary-card {
+  margin-bottom: 24px;
+  border-radius: 8px;
+}
+
+.daily-itinerary-card .ant-card-head-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.activity-images {
+  margin-top: 12px;
+}
+
+.activity-images img {
+  border-radius: 4px;
+  object-fit: cover;
 }
 
 /* 响应式设计 */
@@ -46,7 +109,12 @@
   }
   
   .app-header .logo {
-    font-size: 16px;
+    font-size: 18px;
+    margin-right: 20px;
+  }
+  
+  .app-sider {
+    display: none;
   }
   
   .app-content-wrapper {
@@ -55,5 +123,11 @@
   
   .app-content {
     padding: 16px;
+    margin: 0;
+  }
+  
+  .recognized-text {
+    margin-left: 8px;
+    max-width: 100%;
   }
 }

@@ -98,7 +98,15 @@ const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }
       
       message.success('行程规划生成成功！');
       onPlanGenerated?.();
+      
+      // 清空表单
+      form.resetFields();
+      setRecognizedText('');
+      
+      // 滚动到页面顶部显示成功消息
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
+      console.error('行程生成失败:', error);
       message.error('行程规划生成失败，请稍后重试');
     }
   };

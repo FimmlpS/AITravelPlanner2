@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 // 高德地图API密钥
-const AMAP_KEY = import.meta.env.VITE_AMAP_KEY;
+const AMAP_KEY = import.meta.env.VITE_GAODE_MAP_KEY || '5612816083a872219d455ef9ed276e09';
 
 /**
  * 加载高德地图SDK
