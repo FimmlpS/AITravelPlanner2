@@ -1,8 +1,32 @@
-.app-layout {
-  min-height: 100vh;
+/* App组件的样式 */
+.flex {
+  display: flex;
 }
 
-.app-header {
+.justify-between {
+  justify-content: space-between;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.mb-4 {
+  margin-bottom: 16px;
+}
+
+.mb-0 {
+  margin-bottom: 0;
+}
+
+/* 修改为全屏布局 */
+.app-layout {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* 确保header样式与App.tsx中的类名匹配 */
+.header {
   display: flex;
   align-items: center;
   padding: 0 24px;
@@ -10,7 +34,7 @@
   background-color: #1890ff;
 }
 
-.app-header .logo {
+.header .logo {
   color: white;
   font-size: 24px;
   font-weight: bold;
@@ -18,28 +42,30 @@
   white-space: nowrap;
 }
 
-.app-sider {
+/* 确保sider样式与App.tsx中的类名匹配 */
+.sider {
   background-color: #f0f2f5;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
 }
 
-.app-content-wrapper {
+/* 确保content样式与App.tsx中的类名匹配并支持全屏 */
+.content {
   padding: 24px;
   background-color: #f5f5f5;
   min-height: calc(100vh - 64px);
+  width: 100%;
 }
 
-.app-content {
+/* 修改内容容器为全屏宽度 */
+.content-container {
+  width: 100%;
+  max-width: none;
+  margin: 0;
   background-color: white;
   padding: 24px;
   border-radius: 8px;
   min-height: 80vh;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
-}
-
-.content-container {
-  max-width: 1000px;
-  margin: 0 auto;
 }
 
 /* 行程表单样式 */

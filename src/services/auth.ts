@@ -155,18 +155,24 @@ class AuthService {
     DebugLogger.log(component, '开始用户登出');
     
     try {
+      // 尝试调用Supabase登出API
       const { error } = await supabase.auth.signOut();
       if (error) {
-        ErrorTracker.trackError(component, `登出失败: ${error.message}`);
-        return { error: error.message };
+        // 记录错误但仍然返回成功，确保前端可以登出
+        ErrorTracker.trackError(component, `Supabase登出API失败: ${error.message}`);
+        DebugLogger.warn(component, 'Supabase登出API失败，但继续前端登出流程', { error: error.message });
+        // 即使API调用失败，也返回成功，让前端可以清理用户状态
+        return { error: null };
       }
       DebugLogger.log(component, '登出成功');
       return { error: null };
     } catch (error) {
       const errorMsg = (error as Error).message;
-      ErrorTracker.trackError(component, errorMsg);
-      DebugLogger.error(component, '登出异常', error);
-      return { error: errorMsg };
+      // 记录错误但仍然返回成功，确保前端可以登出
+      ErrorTracker.trackError(component, `登出网络异常: ${errorMsg}`);
+      DebugLogger.warn(component, '登出网络异常，但继续前端登出流程', { error: errorMsg });
+      // 即使网络异常，也返回成功，让前端可以清理用户状态
+      return { error: null };
     }
   }
 

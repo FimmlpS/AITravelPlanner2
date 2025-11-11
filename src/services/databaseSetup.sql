@@ -98,6 +98,16 @@ WHERE NOT EXISTS (SELECT 1 FROM travel_plans LIMIT 1);
 GRANT ALL ON TABLE travel_plans TO authenticated;
 GRANT SELECT ON TABLE travel_plans TO anon;
 
+-- 为travel_plans表添加user_id字段（关联到auth.users表）
+ALTER TABLE travel_plans 
+ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+
+-- 为user_id字段创建索引以提高查询性能
+CREATE INDEX IF NOT EXISTS idx_travel_plans_user_id ON travel_plans(user_id);
+
+-- 更新现有数据的user_id为示例值（如果需要）
+-- UPDATE travel_plans SET user_id = (SELECT id FROM auth.users LIMIT 1) WHERE user_id IS NULL;
+
 -- 现在创建关联表（在travel_plans表之后）
 -- 创建用户收藏表
 CREATE TABLE IF NOT EXISTS user_favorites (

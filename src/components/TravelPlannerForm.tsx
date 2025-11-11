@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Form, Input, DatePicker, InputNumber, Select, Button, message, Card, Row, Col, Space } from 'antd';
 import { AudioOutlined, SendOutlined } from '@ant-design/icons';
 // Dayjs导入已移除
-import { useAppDispatch } from '../store';
+import { useAppDispatch, useAppSelector } from '../store';
 import { generateTravelPlan, type TravelPreference } from '../store/slices/travelSlice';
 import { SpeechRecognizer } from '../services/xfyun';
 
@@ -19,6 +19,7 @@ const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }
   const [recognizedText, setRecognizedText] = useState('');
   const speechRecognizerRef = useRef<SpeechRecognizer | null>(null);
   const dispatch = useAppDispatch();
+  const { user } = useAppSelector(state => state.user); // 获取当前用户信息
 
   // 旅行偏好选项
   const preferenceOptions = [
@@ -93,8 +94,11 @@ const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }
         preferences: values.preferences || [],
       };
 
-      // 调用Redux thunk生成行程
-      await dispatch(generateTravelPlan(travelPreference)).unwrap();
+      // 调用Redux thunk生成行程，传递用户ID
+      await dispatch(generateTravelPlan({ 
+        preferences: travelPreference, 
+        userId: user?.id 
+      })).unwrap();
       
       message.success('行程规划生成成功！');
       onPlanGenerated?.();

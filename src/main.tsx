@@ -8,6 +8,14 @@ import { initDatabase, initDatabaseFallback } from './services/initDatabase'
 import './index.css'
 import App from './App.tsx'
 
+// 开发环境下引入调试工具
+if (import.meta.env.DEV) {
+  // @ts-ignore
+  import('./services/browserDebug.js').catch((err: any) => {
+    console.warn('调试工具加载失败:', err);
+  });
+}
+
 // 应用初始化组件
 const AppWithInit = () => {
   useEffect(() => {

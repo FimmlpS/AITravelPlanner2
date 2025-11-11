@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, Menu, Typography, message } from 'antd'
-import { HomeOutlined, CalendarOutlined, DollarOutlined, UserOutlined, SettingOutlined } from '@ant-design/icons'
+import { Layout, Menu, Typography, message, Button } from 'antd'
+import { HomeOutlined, CalendarOutlined, DollarOutlined, UserOutlined, SettingOutlined, ReloadOutlined } from '@ant-design/icons'
 import './App.css'
 import TravelPlannerForm from './components/TravelPlannerForm'
 import TravelPlanDetail from './components/TravelPlanDetail'
+import TravelPlanList from './components/TravelPlanList'
 import AuthPage from './pages/AuthPage'
 import { useAppDispatch, useAppSelector } from './store'
 import { fetchTravelPlans } from './store/slices/travelSlice'
@@ -13,27 +14,31 @@ import { fetchCurrentUser, logoutUser } from './store/slices/userSlice'
 const { Header, Content, Sider } = Layout
 const { Title } = Typography
 
-function App() {
+// 主应用组件，包含所有受保护的内容
+const MainApp = () => {
   const [activeTab, setActiveTab] = useState('1');
   const dispatch = useAppDispatch();
   const { currentPlan } = useAppSelector(state => state.travel);
-  const { isAuthenticated, user } = useAppSelector(state => state.user);
-
-  // 初始化时检查用户登录状态和加载数据
-  useEffect(() => {
-    // 检查用户登录状态
-    dispatch(fetchCurrentUser());
-  }, [dispatch]);
+  const { user } = useAppSelector(state => state.user);
 
   // 当用户已认证时加载行程
-  useEffect(() => {
-    if (isAuthenticated) {
-      dispatch(fetchTravelPlans()).unwrap()
+  const loadUserTravelPlans = () => {
+    if (user) {
+      dispatch(fetchTravelPlans(user.id)).unwrap()
         .catch(error => {
           console.error('加载行程失败:', error);
+          // 只有在非"请求过于频繁"的错误时才显示错误消息
+          if (error !== '请求过于频繁') {
+            message.error('加载行程失败，请稍后重试');
+          }
         });
     }
-  }, [dispatch, isAuthenticated]);
+  };
+
+  // 在受保护组件内加载行程数据
+  useEffect(() => {
+    loadUserTravelPlans();
+  }, [dispatch, user]);
 
   // 处理行程生成后的回调
   const handlePlanGenerated = () => {
@@ -49,10 +54,14 @@ function App() {
   // 处理登出
   const handleLogout = async () => {
     try {
+      // 即使登出API调用失败，我们也希望用户能够退出登录
       await dispatch(logoutUser()).unwrap();
       message.success('已成功登出');
     } catch (error) {
-      message.error('登出失败，请稍后重试');
+      // 即使有错误，也不显示错误消息，因为我们的auth.ts已经处理了这种情况
+      // 我们仍然希望用户能够退出登录，所以不阻止导航
+      console.warn('登出过程中出现问题，但继续登出流程:', error);
+      message.success('已成功登出');
     }
   };
 
@@ -61,7 +70,16 @@ function App() {
     if (activeTab === '1') {
       return (
         <div className="content-container">
-          <Title level={2}>欢迎使用AI旅行规划师，{user?.name || user?.email}</Title>
+          <div className="flex justify-between items-center mb-4">
+            <Title level={2} className="mb-0">欢迎使用AI旅行规划师，{user?.name || user?.email}</Title>
+            <Button 
+              type="primary" 
+              icon={<ReloadOutlined />}
+              onClick={loadUserTravelPlans}
+            >
+              刷新行程
+            </Button>
+          </div>
           <p>请输入您的旅行需求，AI将为您生成个性化的旅行计划。</p>
           
           {/* 行程规划表单 */}
@@ -79,13 +97,25 @@ function App() {
     } else if (activeTab === '2') {
       return (
         <div className="content-container">
-          <Title level={2}>我的行程</Title>
-          <p>这里将显示您的所有旅行计划。</p>
-          {/* 后续将实现行程列表功能 */}
-          {currentPlan ? (
-            <TravelPlanDetail />
-          ) : (
-            <p>暂无行程计划，请先创建一个旅行计划。</p>
+          <div className="flex justify-between items-center mb-4">
+            <Title level={2} className="mb-0">我的行程</Title>
+            <Button 
+              type="primary" 
+              icon={<ReloadOutlined />}
+              onClick={loadUserTravelPlans}
+            >
+              刷新行程
+            </Button>
+          </div>
+          <TravelPlanList onSelectPlan={(plan) => {
+            message.success(`已选择行程: ${plan.title}`);
+            // 可以在这里添加额外的处理，比如滚动到详情部分
+          }} />
+          {currentPlan && (
+            <div className="mt-8">
+              <Title level={3}>行程详情</Title>
+              <TravelPlanDetail />
+            </div>
           )}
         </div>
       );
@@ -115,56 +145,57 @@ function App() {
     return null;
   };
 
-  // 认证路由组件
-  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    if (!isAuthenticated) {
-      return <Navigate to="/auth" replace />;
-    }
-    return <>{children}</>;
-  };
-
-  // 主应用组件
-  const MainApp = () => (
+  return (
     <Layout className="app-layout">
-      <Header className="app-header">
+      <Header className="header">
         <div className="logo">AI旅行规划师</div>
-        <Menu
-          theme="dark"
-          mode="horizontal"
-          selectedKeys={[activeTab]}
-          onSelect={handleMenuSelect}
-          items={[
-            { key: '1', icon: <HomeOutlined />, label: '首页' },
-            { key: '2', icon: <CalendarOutlined />, label: '行程管理' },
-            { key: '3', icon: <DollarOutlined />, label: '预算管理' },
-            { key: '4', icon: <UserOutlined />, label: '个人中心' },
-          ]}
-        />
+        <div className="user-info">
+          <span>欢迎，{user?.name || user?.email}</span>
+        </div>
       </Header>
       <Layout>
-        <Sider width={250} className="app-sider" theme="light">
+        <Sider width={250} theme="light">
           <Menu
             mode="inline"
             selectedKeys={[activeTab]}
-            onSelect={handleMenuSelect}
             style={{ height: '100%', borderRight: 0 }}
+            onSelect={handleMenuSelect}
             items={[
-              { key: '1', icon: <HomeOutlined />, label: '快速规划' },
+              { key: '1', icon: <HomeOutlined />, label: '首页' },
               { key: '2', icon: <CalendarOutlined />, label: '我的行程' },
               { key: '3', icon: <DollarOutlined />, label: '费用统计' },
               { key: '4', icon: <UserOutlined />, label: '个人中心' },
             ]}
           />
         </Sider>
-        <Layout className="app-content-wrapper">
-          <Content className="app-content">
+        <Layout>
+          <Content className="content">
             {renderMainContent()}
           </Content>
         </Layout>
       </Layout>
     </Layout>
   );
+}
 
+// 认证路由组件
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const dispatch = useAppDispatch();
+  const { isAuthenticated } = useAppSelector(state => state.user);
+  
+  // 在ProtectedRoute中检查用户登录状态，而不是在App根组件中
+  useEffect(() => {
+    // 检查用户登录状态
+    dispatch(fetchCurrentUser());
+  }, [dispatch]);
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+  return <>{children}</>;
+};
+
+function App() {
   return (
     <Router>
       <Routes>
@@ -188,7 +219,8 @@ function App() {
         <Route path="/" element={<Navigate to="/auth" replace />} />
       </Routes>
     </Router>
-  )
+  );
 }
 
-export default App
+export default App;
+

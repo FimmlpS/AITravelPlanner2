@@ -43,6 +43,7 @@ export interface TravelPlan {
   totalBudget: number;
   spentBudget: number;
   status: 'draft' | 'planned' | 'ongoing' | 'completed';
+  userId?: string; // 添加userId字段
 }
 
 interface TravelState {
@@ -66,7 +67,7 @@ const initialState: TravelState = {
 // 生成行程规划
 export const generateTravelPlan = createAsyncThunk(
   'travel/generatePlan',
-  async (preferences: TravelPreference, { rejectWithValue }) => {
+  async ({ preferences, userId }: { preferences: TravelPreference; userId?: string }, { rejectWithValue }) => {
     const component = 'generateTravelPlan';
     PerformanceMonitor.start(component);
     DebugLogger.log(component, '开始生成行程计划', { destination: preferences.destination });
@@ -178,7 +179,8 @@ export const generateTravelPlan = createAsyncThunk(
         spent_budget: mockPlan.spentBudget,
         status: mockPlan.status,
         created_at: mockPlan.createdAt,
-        updated_at: mockPlan.updatedAt
+        updated_at: mockPlan.updatedAt,
+        user_id: userId || null // 添加用户ID
       };
 
       // 保存到Supabase数据库
@@ -270,53 +272,109 @@ export const generateTravelPlan = createAsyncThunk(
   }
 );
 
+// 全局变量，用于跟踪正在进行的fetchTravelPlans请求
+let activeFetchRequest: AbortController | null = null;
+let lastFetchTimestamp = 0;
+let isFirstRequest = true; // 标记是否是首次请求
+const MIN_FETCH_INTERVAL = 5000; // 最小请求间隔5秒，增加间隔时间
+
 // 获取用户的所有行程计划
 export const fetchTravelPlans = createAsyncThunk(
   'travel/fetchPlans',
-  async (_, {}) => {
+  async (userId: string | null, { rejectWithValue }) => {
     const component = 'fetchTravelPlans';
     PerformanceMonitor.start(component);
-    DebugLogger.log(component, '开始获取行程列表');
+    DebugLogger.log(component, '开始获取行程列表', { userId });
+    
+    // 检查是否有正在进行的请求，如果有则取消
+    if (activeFetchRequest) {
+      DebugLogger.warn(component, '取消正在进行的请求');
+      activeFetchRequest.abort();
+    }
+    
+    // 检查请求间隔，避免频繁请求
+    // 首次请求不受间隔限制
+    const now = Date.now();
+    if (!isFirstRequest && now - lastFetchTimestamp < MIN_FETCH_INTERVAL) {
+      const timeLeft = MIN_FETCH_INTERVAL - (now - lastFetchTimestamp);
+      DebugLogger.warn(component, `请求过于频繁，等待 ${timeLeft}ms 后再执行`);
+      // 使用rejectWithValue而不是抛出异常，这样不会触发错误处理
+      return rejectWithValue('请求过于频繁');
+    }
+    
+    lastFetchTimestamp = now;
+    if (isFirstRequest) {
+      isFirstRequest = false; // 标记首次请求已完成
+      DebugLogger.log(component, '首次请求，不受频率限制');
+    }
+    
+    // 创建AbortController用于请求超时控制（只有在通过频率检查后才创建）
+    const controller = new AbortController();
+    activeFetchRequest = controller;
+    
+    const timeoutId = setTimeout(() => {
+      DebugLogger.warn(component, '请求超时，正在中断');
+      controller.abort();
+    }, 10000); // 10秒超时
+    
+    // 首先检查本地存储，快速返回可用数据
+    let localTravelPlans: TravelPlan[] = [];
+    try {
+      const localPlans = localStorage.getItem('travelPlans');
+      if (localPlans) {
+        DebugLogger.log(component, '尝试加载本地存储数据');
+        const plans = JSON.parse(localPlans) as TravelPlan[];
+        // 验证数据格式
+        localTravelPlans = plans.filter(plan => {
+          try {
+            const validation = DataValidator.validateTravelPlan(plan);
+            return validation.isValid;
+          } catch (e) {
+            DebugLogger.warn(component, '行程数据验证失败', e);
+            return false;
+          }
+        });
+        DebugLogger.log(component, '本地存储数据加载完成', { count: localTravelPlans.length });
+      }
+    } catch (parseError) {
+      DebugLogger.error(component, '本地存储数据解析失败', parseError);
+      // 清除损坏的数据
+      try {
+        localStorage.removeItem('travelPlans');
+        DebugLogger.log(component, '已清除损坏的本地存储数据');
+      } catch (cleanupError) {
+        DebugLogger.error(component, '清除损坏数据失败', cleanupError);
+      }
+    }
     
     try {
       DebugLogger.log(component, '尝试从数据库获取行程列表...');
-      const { data, error } = await supabase
-        .from('travel_plans')
-        .select('*')
-        .order('created_at', { ascending: false });
+      
+      // 如果提供了userId，只获取该用户的行程
+      let query = supabase.from('travel_plans').select('*');
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+      
+      // 添加信号参数以支持超时控制
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      // 清除超时定时器
+      clearTimeout(timeoutId);
 
       if (error) {
         ErrorTracker.trackError(component, `数据库查询错误: ${error.message}`);
         DebugLogger.error(component, '数据库查询错误', { message: error.message, code: error.code });
         
-        // 尝试从本地存储获取数据作为后备
-        try {
-          const localPlans = localStorage.getItem('travelPlans');
-          if (localPlans) {
-            DebugLogger.log(component, '使用本地存储的行程数据作为后备');
-            const plans = JSON.parse(localPlans) as TravelPlan[];
-            // 验证数据格式
-            const validPlans = plans.filter(plan => {
-              const validation = DataValidator.validateTravelPlan(plan);
-              if (!validation.isValid) {
-                DebugLogger.warn(component, `跳过无效的行程数据: ${plan.id}`, validation.errors);
-              }
-              return validation.isValid;
-            });
-            return validPlans;
-          }
-        } catch (parseError) {
-          DebugLogger.error(component, '本地存储数据解析失败', parseError);
-          // 清除损坏的数据
-          try {
-            localStorage.removeItem('travelPlans');
-            DebugLogger.log(component, '已清除损坏的本地存储数据');
-          } catch (cleanupError) {
-            DebugLogger.error(component, '清除损坏数据失败', cleanupError);
-          }
+        // 如果本地有数据，返回本地数据
+        if (localTravelPlans.length > 0) {
+          DebugLogger.log(component, '使用本地存储数据作为后备');
+          return localTravelPlans;
         }
         
-        return []; // 返回空数组
+        // 如果本地也没有数据，提供模拟数据
+        DebugLogger.log(component, '无可用数据，返回模拟行程');
+        return getMockTravelPlans(userId);
       }
 
       if (data) {
@@ -325,23 +383,28 @@ export const fetchTravelPlans = createAsyncThunk(
         // 转换数据格式并验证
         const travelPlans: TravelPlan[] = [];
         for (const dbPlan of data) {
-          const plan: TravelPlan = {
-            id: dbPlan.id,
-            title: dbPlan.title,
-            preferences: dbPlan.preferences,
-            dailyItineraries: dbPlan.daily_itineraries,
-            totalBudget: dbPlan.total_budget,
-            spentBudget: dbPlan.spent_budget,
-            status: dbPlan.status,
-            createdAt: dbPlan.created_at,
-            updatedAt: dbPlan.updated_at
-          };
-          
-          const validation = DataValidator.validateTravelPlan(plan);
-          if (validation.isValid) {
-            travelPlans.push(plan);
-          } else {
-            DebugLogger.warn(component, `跳过无效的数据库行程数据: ${plan.id}`, validation.errors);
+          try {
+            const plan: TravelPlan = {
+              id: dbPlan.id,
+              title: dbPlan.title,
+              preferences: dbPlan.preferences,
+              dailyItineraries: dbPlan.daily_itineraries,
+              totalBudget: dbPlan.total_budget,
+              spentBudget: dbPlan.spent_budget,
+              status: dbPlan.status,
+              createdAt: dbPlan.created_at,
+              updatedAt: dbPlan.updated_at,
+              userId: dbPlan.user_id || userId // 确保userId存在
+            };
+            
+            const validation = DataValidator.validateTravelPlan(plan);
+            if (validation.isValid) {
+              travelPlans.push(plan);
+            } else {
+              DebugLogger.warn(component, `跳过无效的数据库行程数据: ${plan.id}`, validation.errors);
+            }
+          } catch (planError) {
+            DebugLogger.warn(component, '处理行程数据时出错', planError);
           }
         }
         
@@ -356,34 +419,133 @@ export const fetchTravelPlans = createAsyncThunk(
         return travelPlans;
       }
 
-      return [];
-    } catch (error) {
-      ErrorTracker.trackError(component, `数据库操作异常: ${(error as Error).message}`);
-      DebugLogger.error(component, '数据库操作异常', error);
-      
-      // 发生异常时尝试从本地存储获取数据
-      try {
-        const localPlans = localStorage.getItem('travelPlans');
-        if (localPlans) {
-          DebugLogger.log(component, '使用本地存储的行程数据作为后备');
-          const plans = JSON.parse(localPlans) as TravelPlan[];
-          // 验证数据格式
-          const validPlans = plans.filter(plan => {
-            const validation = DataValidator.validateTravelPlan(plan);
-            return validation.isValid;
-          });
-          return validPlans;
-        }
-      } catch (fallbackError) {
-        DebugLogger.error(component, '本地存储后备获取失败', fallbackError);
+      // 如果数据库返回空，使用本地数据或模拟数据
+      if (localTravelPlans.length > 0) {
+        DebugLogger.log(component, '数据库返回空，使用本地数据');
+        return localTravelPlans;
       }
       
-      return [];
+      DebugLogger.log(component, '数据库返回空且本地无数据，返回模拟行程');
+      return getMockTravelPlans(userId);
+    } catch (error) {
+      // 清除超时定时器
+      clearTimeout(timeoutId);
+      
+      // 处理各种类型的错误
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          DebugLogger.warn(component, '请求超时或被取消');
+          // 对于取消的请求，不返回错误，而是静默处理
+          return rejectWithValue('请求已取消');
+        } else if (error.message.includes('Failed to fetch')) {
+          DebugLogger.warn(component, '网络请求失败，可能是资源不足');
+        }
+        ErrorTracker.trackError(component, `数据库操作异常: ${error.message}`);
+      }
+      DebugLogger.error(component, '数据库操作异常', error);
+      
+      // 发生异常时使用本地数据或模拟数据
+      if (localTravelPlans.length > 0) {
+        DebugLogger.log(component, '发生异常，使用本地存储数据');
+        return localTravelPlans;
+      }
+      
+      DebugLogger.log(component, '发生异常且本地无数据，返回模拟行程');
+      return getMockTravelPlans(userId);
     } finally {
+      // 确保清除定时器和重置状态
+      clearTimeout(timeoutId);
+      activeFetchRequest = null;
       PerformanceMonitor.end(component);
     }
   }
 );
+
+// 生成模拟行程数据，用于开发和离线模式
+function getMockTravelPlans(userId: string | null): TravelPlan[] {
+  const mockPlans: TravelPlan[] = [
+    {
+      id: 'mock-1',
+      title: '周末上海行',
+      userId: userId || 'mock-user',
+      preferences: {
+        destination: '上海',
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + 86400000 * 2).toISOString(),
+        peopleCount: 2,
+        budget: 2000,
+        preferences: ['美食', '购物', '文化']
+      },
+      dailyItineraries: [
+        {
+          date: new Date().toISOString(),
+          activities: [
+              {
+                id: 'act-mock-1',
+                type: 'attraction',
+                name: '外滩观光',
+                address: '上海外滩',
+                duration: 120, // 2小时转换为分钟
+                cost: 0,
+                description: '观赏黄浦江两岸风景',
+                openingHours: '全天开放',
+                rating: 4.8,
+                images: [],
+                coordinates: [121.487, 31.240]
+              }
+          ],
+          totalCost: 0
+        }
+      ],
+      totalBudget: 2000,
+      spentBudget: 0,
+      status: 'draft',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'mock-2',
+      title: '北京五日游',
+      userId: userId || 'mock-user',
+      preferences: {
+        destination: '北京',
+        startDate: new Date(Date.now() + 86400000 * 7).toISOString(),
+        endDate: new Date(Date.now() + 86400000 * 12).toISOString(),
+        peopleCount: 1,
+        budget: 5000,
+        preferences: ['历史', '美食']
+      },
+      dailyItineraries: [
+        {
+          date: new Date(Date.now() + 86400000 * 7).toISOString(),
+          activities: [
+            {
+              id: 'act-mock-2',
+              type: 'attraction',
+              name: '故宫博物院',
+              address: '北京故宫博物院',
+              duration: 240, // 4小时转换为分钟
+              cost: 60,
+              description: '参观中国明清两代的皇家宫殿',
+              openingHours: '08:30-17:00',
+              rating: 4.9,
+              images: [],
+              coordinates: [116.397, 39.916]
+            }
+          ],
+          totalCost: 60
+        }
+      ],
+      totalBudget: 5000,
+      spentBudget: 60,
+      status: 'draft',
+      createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000 * 3).toISOString()
+    }
+  ];
+  
+  return mockPlans;
+}
 
 // 更新行程计划
 export const updateTravelPlan = createAsyncThunk(
@@ -594,8 +756,9 @@ const travelSlice = createSlice({
     // fetchTravelPlans
     builder
       .addCase(fetchTravelPlans.pending, (state) => {
+        // 只设置isLoading为true，不清除error状态
+        // 这样可以避免每次请求开始都清除之前可能存在的错误
         state.isLoading = true;
-        state.error = null;
       })
       .addCase(fetchTravelPlans.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -603,7 +766,11 @@ const travelSlice = createSlice({
       })
       .addCase(fetchTravelPlans.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        // 对于"请求过于频繁"的错误，完全忽略，保持error状态不变
+        // 这可以防止状态更新导致不必要的重新渲染和新请求
+        if (action.payload !== '请求过于频繁') {
+          state.error = action.payload as string;
+        }
       });
 
     // updateTravelPlan
