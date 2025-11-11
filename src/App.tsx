@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout, Menu, Typography, message, Button } from 'antd'
-import { HomeOutlined, CalendarOutlined, DollarOutlined, UserOutlined, SettingOutlined, ReloadOutlined } from '@ant-design/icons'
+import { HomeOutlined, CalendarOutlined, DollarOutlined, UserOutlined, ReloadOutlined } from '@ant-design/icons'
 import './App.css'
 import TravelPlannerForm from './components/TravelPlannerForm'
 import TravelPlanDetail from './components/TravelPlanDetail'
 import TravelPlanList from './components/TravelPlanList'
 import AuthPage from './pages/AuthPage'
 import { useAppDispatch, useAppSelector } from './store'
-import { fetchTravelPlans } from './store/slices/travelSlice'
+import { fetchTravelPlans, clearTravelState } from './store/slices/travelSlice'
 import { fetchCurrentUser, logoutUser } from './store/slices/userSlice'
 
 const { Header, Content, Sider } = Layout
@@ -40,8 +40,13 @@ const MainApp = () => {
     loadUserTravelPlans();
   }, [dispatch, user]);
 
+  const [apiResponseData, setApiResponseData] = useState<any>(null);
+
   // 处理行程生成后的回调
-  const handlePlanGenerated = () => {
+  const handlePlanGenerated = (responseData?: any) => {
+    if (responseData) {
+      setApiResponseData(responseData);
+    }
     message.success('行程已生成，现在为您显示详情');
     setActiveTab('1');
   };
@@ -54,6 +59,8 @@ const MainApp = () => {
   // 处理登出
   const handleLogout = async () => {
     try {
+      // 清除行程状态
+      dispatch(clearTravelState());
       // 即使登出API调用失败，我们也希望用户能够退出登录
       await dispatch(logoutUser()).unwrap();
       message.success('已成功登出');
@@ -85,6 +92,16 @@ const MainApp = () => {
           {/* 行程规划表单 */}
           <TravelPlannerForm onPlanGenerated={handlePlanGenerated} />
           
+          {/* API响应数据展示区域 */}
+          {apiResponseData && (
+            <div className="mt-6 bg-gray-50 p-4 rounded border border-gray-200">
+              <Title level={3}>API响应数据</Title>
+              <div className="overflow-auto max-h-96">
+                <pre className="text-sm">{JSON.stringify(apiResponseData, null, 2)}</pre>
+              </div>
+            </div>
+          )}
+
           {/* 行程详情（如果有生成的行程） */}
           {currentPlan && (
             <div className="mt-6">

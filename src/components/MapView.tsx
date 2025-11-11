@@ -8,7 +8,7 @@ interface MapViewProps {
   onLocationSelect?: (location: { name: string; address: string; coordinates: [number, number] }) => void;
 }
 
-const MapView: React.FC<MapViewProps> = ({ activities = [], dailyItinerary, onLocationSelect }) => {
+const MapView: React.FC<MapViewProps> = ({ activities = [], onLocationSelect }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapServiceRef = useRef<typeof MapService | null>(null);
 
@@ -16,13 +16,13 @@ const MapView: React.FC<MapViewProps> = ({ activities = [], dailyItinerary, onLo
     // 初始化地图服务
     if (!mapServiceRef.current && mapContainerRef.current) {
       mapServiceRef.current = MapService;
-      mapServiceRef.current.initMap(mapContainerRef.current.id || '');
+      mapServiceRef.current.initMap(mapContainerRef.current.id || 'map-container');
     }
 
     return () => {
       // 清理地图实例
       if (mapServiceRef.current) {
-        mapServiceRef.current.destroyMap();
+        mapServiceRef.current.clearMap();
         mapServiceRef.current = null;
       }
     };
@@ -31,7 +31,7 @@ const MapView: React.FC<MapViewProps> = ({ activities = [], dailyItinerary, onLo
   useEffect(() => {
     // 当活动列表变化时，在地图上显示标记
     if (mapServiceRef.current && activities.length > 0) {
-      mapServiceRef.current.clearMarkers();
+      mapServiceRef.current.clearMap();
       
       activities.forEach(activity => {
         if (activity.coordinates && activity.coordinates.length === 2) {
@@ -42,19 +42,8 @@ const MapView: React.FC<MapViewProps> = ({ activities = [], dailyItinerary, onLo
           });
         } else if (activity.address) {
           // 如果没有坐标但有地址，尝试进行地理编码
-          mapServiceRef.current?.geocodeAddress(activity.address)
-            .then((coordinates: [number, number]) => {
-              if (coordinates && mapServiceRef.current) {
-                mapServiceRef.current.addMarker(coordinates, {
-                  title: activity.name,
-                  content: `${activity.name}\n${activity.address}\n${activity.description}`,
-                  type: activity.type
-                });
-              }
-            })
-            .catch((error: any) => {
-              console.error(`无法获取地址坐标: ${activity.address}`, error);
-            });
+          // 地址解析功能暂时不可用，跳过地理编码
+          console.log(`跳过地址解析: ${activity.address}`);
         }
       });
 
@@ -64,7 +53,11 @@ const MapView: React.FC<MapViewProps> = ({ activities = [], dailyItinerary, onLo
           .filter(a => a.coordinates)
           .map(a => a.coordinates!);
         if (validCoordinates.length > 0) {
-          mapServiceRef.current.fitBounds(validCoordinates);
+          // 调整地图中心到第一个坐标
+          if (validCoordinates[0]) {
+            mapServiceRef.current.setCenter(validCoordinates[0]);
+            mapServiceRef.current.setZoom(12);
+          }
         }
       }
     }
@@ -72,11 +65,7 @@ const MapView: React.FC<MapViewProps> = ({ activities = [], dailyItinerary, onLo
 
   useEffect(() => {
     // 为标记添加点击事件监听
-    if (mapServiceRef.current && onLocationSelect) {
-      mapServiceRef.current.onMarkerClick((info: { name: string; address: string; coordinates: [number, number] }) => {
-        onLocationSelect(info);
-      });
-    }
+    // 标记点击事件监听暂时不可用
   }, [onLocationSelect]);
 
   const handleRoutePlanning = () => {
@@ -87,13 +76,8 @@ const MapView: React.FC<MapViewProps> = ({ activities = [], dailyItinerary, onLo
         .map(a => a.coordinates!);
       
       if (validCoordinates.length > 1) {
-        mapServiceRef.current?.calculateMultiPointRoute(validCoordinates)
-          .then((route: any) => {
-            console.log('路线规划成功:', route);
-          })
-          .catch((error: any) => {
-            console.error('路线规划失败:', error);
-          });
+        // 多点路线规划暂时不可用
+          console.log('多点路线规划功能暂未实现');
       }
     }
   };
@@ -101,16 +85,15 @@ const MapView: React.FC<MapViewProps> = ({ activities = [], dailyItinerary, onLo
   const handleCurrentLocation = () => {
     // 获取当前位置并显示在地图上
     if (mapServiceRef.current) {
-      mapServiceRef.current.getCurrentLocation()
-        .then((position: { longitude: number; latitude: number }) => {
-          if (position) {
-            mapServiceRef.current?.setCenter([position.longitude, position.latitude]);
-            mapServiceRef.current?.addMarker([position.longitude, position.latitude], {
-              title: '当前位置',
-              content: '您的当前位置',
-              type: 'current'
-            });
-          }
+      // 使用locate方法替代getCurrentLocation
+      mapServiceRef.current.locate()
+        .then((coordinates: [number, number]) => {
+          mapServiceRef.current?.setCenter(coordinates);
+          mapServiceRef.current?.addMarker(coordinates, {
+            title: '当前位置',
+            content: '您的当前位置',
+            type: 'current'
+          });
         })
         .catch((error: any) => {
           console.error('获取当前位置失败:', error);

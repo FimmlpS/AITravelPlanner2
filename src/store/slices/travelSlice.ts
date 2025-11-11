@@ -2,8 +2,9 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 // PayloadAction导入已移除，因为未使用
 import supabase from '../../services/supabase';
 import { DebugLogger, ErrorTracker, PerformanceMonitor, DataValidator } from '../../services/debugHelper';
+import aiTravelGenerator from '../../services/aiTravelGenerator';
 
-// 类型定义
+// 本地类型定义，与aiTravelGenerator.ts中的定义保持同步
 export interface TravelPreference {
   destination: string;
   startDate: string;
@@ -46,6 +47,8 @@ export interface TravelPlan {
   userId?: string; // 添加userId字段
 }
 
+// 已从aiTravelGenerator导入类型定义
+
 interface TravelState {
   plans: TravelPlan[];
   currentPlan: TravelPlan | null;
@@ -73,199 +76,54 @@ export const generateTravelPlan = createAsyncThunk(
     DebugLogger.log(component, '开始生成行程计划', { destination: preferences.destination });
     
     try {
-      // 这里应该调用OpenAI API生成行程
-      // 由于API密钥尚未提供，这里使用模拟数据
-      const mockPlan: TravelPlan = {
-        id: `plan-${Date.now()}`,
-        title: `${preferences.destination} ${preferences.startDate} 旅行计划`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        preferences,
-        dailyItineraries: [
-          {
-            date: preferences.startDate,
-            activities: [
-              {
-                id: 'act-1',
-                type: 'transport',
-                name: '机场到酒店',
-                address: '',
-                duration: 60,
-                cost: 200,
-                description: '从机场乘坐出租车到酒店',
-              },
-              {
-                id: 'act-2',
-                type: 'accommodation',
-                name: '市中心酒店',
-                address: preferences.destination + '市中心',
-                duration: 1440,
-                cost: 800,
-                description: '舒适的市中心酒店，方便出行',
-              },
-              {
-                id: 'act-3',
-                type: 'restaurant',
-                name: '当地特色餐厅',
-                address: preferences.destination + '美食街',
-                duration: 90,
-                cost: 300,
-                description: '品尝当地特色美食',
-              },
-            ],
-            totalCost: 1300,
-          },
-        ],
-        totalBudget: preferences.budget,
-        spentBudget: 1300,
-        status: 'planned',
-      };
-
-      // 计算总天数并生成多天行程
-      const startDate = new Date(preferences.startDate);
-      const endDate = new Date(preferences.endDate);
-      const dayCount = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-
-      for (let i = 1; i <= dayCount; i++) {
-        const currentDate = new Date(startDate);
-        currentDate.setDate(startDate.getDate() + i);
-        
-        mockPlan.dailyItineraries.push({
-          date: currentDate.toISOString().split('T')[0],
-          activities: [
-            {
-              id: `act-${i}-1`,
-              type: 'attraction',
-              name: `当地景点 ${i}`,
-              address: preferences.destination + `景区 ${i}`,
-              duration: 180,
-              cost: 150,
-              description: `当地著名景点 ${i}`,
-              openingHours: '09:00-17:00',
-              rating: 4.5,
-            },
-            {
-              id: `act-${i}-2`,
-              type: 'restaurant',
-              name: `特色餐厅 ${i}`,
-              address: preferences.destination + `餐厅 ${i}`,
-              duration: 90,
-              cost: 250,
-              description: `提供当地特色菜肴的餐厅 ${i}`,
-            },
-          ],
-          totalCost: 400,
-        });
-
-        mockPlan.spentBudget += 400;
-      }
-
-      // 验证输入数据
-      const validationResult = DataValidator.validateTravelPlan(mockPlan);
+      // 使用AI服务生成行程
+      const aiGenerator = aiTravelGenerator;
+      const travelPlan = await aiGenerator.generateTravelPlan(preferences);
       
-      if (!validationResult.isValid) {
-        const errorMsg = `数据验证失败: ${validationResult.errors.join(', ')}`;
-        ErrorTracker.trackError(component, errorMsg);
-        DebugLogger.error(component, errorMsg);
-        return rejectWithValue(errorMsg);
+      // 设置用户ID（如果提供）
+      if (userId) {
+        travelPlan.userId = userId;
       }
-
-      // 确保数据格式与数据库表结构匹配
-      const planData = {
-        title: mockPlan.title,
-        preferences: mockPlan.preferences,
-        daily_itineraries: mockPlan.dailyItineraries,
-        total_budget: mockPlan.totalBudget,
-        spent_budget: mockPlan.spentBudget,
-        status: mockPlan.status,
-        created_at: mockPlan.createdAt,
-        updated_at: mockPlan.updatedAt,
-        user_id: userId || null // 添加用户ID
-      };
-
-      // 保存到Supabase数据库
-      try {
-        DebugLogger.log(component, '开始保存行程到数据库...', { title: planData.title });
-        const { data, error } = await supabase
+      
+      // 保存到数据库
+      if (userId) {
+        const { error } = await supabase
           .from('travel_plans')
-          .insert([planData])
+          .insert([{
+            id: travelPlan.id,
+            title: travelPlan.title,
+            preferences: travelPlan.preferences,
+            daily_itineraries: travelPlan.dailyItineraries,
+            total_budget: travelPlan.totalBudget,
+            spent_budget: travelPlan.spentBudget,
+            status: travelPlan.status,
+            user_id: travelPlan.userId
+          }])
           .select();
-
+        
         if (error) {
-          ErrorTracker.trackError(component, `数据库保存错误: ${error.message}`);
-          DebugLogger.error(component, '数据库保存错误', { message: error.message, code: error.code });
-          
-          // 发生错误时仍返回模拟数据，确保应用可以继续运行
-          // 保存到本地存储作为后备
-          try {
-            const localPlans = localStorage.getItem('travelPlans') || '[]';
-            const plans = JSON.parse(localPlans) as TravelPlan[];
-            plans.push(mockPlan);
-            localStorage.setItem('travelPlans', JSON.stringify(plans));
-            DebugLogger.log(component, '使用模拟数据并保存到本地存储');
-          } catch (localStorageError) {
-            DebugLogger.error(component, '本地存储写入失败', localStorageError);
-          }
-          
-          return mockPlan;
-        }
-
-        if (data && data.length > 0) {
-          DebugLogger.log(component, '行程成功保存到数据库', { planId: data[0].id });
-          
-          // 返回数据库中的计划数据
-          const result = {
-            ...mockPlan,
-            id: data[0].id
+          // 输出更详细的错误信息，包括错误代码、消息和完整对象
+          const detailedError = {
+            message: error.message || '未知错误',
+            code: error.code || 'UNKNOWN_CODE',
+            details: error.details || {},
+            hint: error.hint || '',
+            // 完整的错误对象，用于详细调试
+            fullError: JSON.stringify(error, null, 2)
           };
-          
-          // 更新本地存储
-          try {
-            const localPlans = localStorage.getItem('travelPlans') || '[]';
-            const plans = JSON.parse(localPlans) as TravelPlan[];
-            plans.push(result);
-            localStorage.setItem('travelPlans', JSON.stringify(plans));
-            DebugLogger.log(component, '本地存储已更新');
-          } catch (localStorageError) {
-            DebugLogger.error(component, '本地存储更新失败', localStorageError);
-          }
-          
-          return result;
+          DebugLogger.error(component, '保存行程计划到数据库失败', detailedError);
+          // 记录到错误追踪系统
+          ErrorTracker.trackError(component, `保存行程失败: ${error.message || '未知错误'}`);
+          // 即使保存失败，仍然返回生成的行程计划
+        } else {
+          DebugLogger.log(component, '行程计划保存成功', { planId: travelPlan.id });
         }
-        
-        // 如果没有返回数据，保存到本地存储
-        try {
-          const localPlans = localStorage.getItem('travelPlans') || '[]';
-          const plans = JSON.parse(localPlans) as TravelPlan[];
-          plans.push(mockPlan);
-          localStorage.setItem('travelPlans', JSON.stringify(plans));
-          DebugLogger.log(component, '保存模拟数据到本地存储');
-        } catch (localStorageError) {
-          DebugLogger.error(component, '本地存储写入失败', localStorageError);
-        }
-        
-        return mockPlan;
-      } catch (supabaseError) {
-        ErrorTracker.trackError(component, `数据库操作异常: ${(supabaseError as Error).message}`);
-        DebugLogger.error(component, '数据库操作异常', { message: (supabaseError as Error).message });
-        
-        // 发生异常时仍返回模拟数据，确保应用可以继续运行
-        // 保存到本地存储作为后备
-        try {
-          const localPlans = localStorage.getItem('travelPlans') || '[]';
-          const plans = JSON.parse(localPlans) as TravelPlan[];
-          plans.push(mockPlan);
-          localStorage.setItem('travelPlans', JSON.stringify(plans));
-        } catch (localStorageError) {
-          DebugLogger.error(component, '本地存储写入失败', localStorageError);
-        }
-        
-        return mockPlan;
       }
+      
+      return travelPlan;
     } catch (error) {
-      ErrorTracker.trackError(component, (error as Error).message);
-      DebugLogger.error(component, '生成行程时发生错误', error);
-      return rejectWithValue((error as Error).message);
+      ErrorTracker.trackError(component, error instanceof Error ? error : '生成行程计划失败');
+      return rejectWithValue(error instanceof Error ? error.message : '生成行程计划失败');
     } finally {
       PerformanceMonitor.end(component);
     }
@@ -735,6 +593,14 @@ const travelSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    clearTravelState: (state) => {
+      // 清除所有行程相关状态，保持初始配置
+      state.plans = [];
+      state.currentPlan = null;
+      state.error = null;
+      state.isLoading = false;
+      state.isGenerating = false;
+    },
   },
   extraReducers: (builder) => {
     // generateTravelPlan
@@ -808,6 +674,6 @@ const travelSlice = createSlice({
   },
 });
 
-export const { setCurrentPlan, clearError } = travelSlice.actions;
+export const { setCurrentPlan, clearError, clearTravelState } = travelSlice.actions;
 
 export default travelSlice.reducer;

@@ -2,7 +2,7 @@
 // 注意：实际使用时需要在index.html中引入高德地图JS API
 
 // 配置项
-const AMAP_KEY = import.meta.env.VITE_AMAP_KEY || 'your-amap-key';
+// const AMAP_KEY = import.meta.env.VITE_AMAP_KEY || 'your-amap-key'; // 暂时注释，待使用
 
 // 地图初始化选项接口
 export interface MapOptions {
@@ -61,7 +61,7 @@ export interface NavigationRoute {
 // 地图服务类
 class MapService {
   private mapInstance: any = null;
-  private loaded = false;
+  // private loaded = false; // 暂时注释，待使用
 
   // 初始化地图
   initMap(containerId: string, options?: MapOptions): Promise<any> {
@@ -85,7 +85,6 @@ class MapService {
       map.addControl(new (window as any).AMap.MapType());
 
       this.mapInstance = map;
-      this.loaded = true;
       resolve(map);
     });
   }

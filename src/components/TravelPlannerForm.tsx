@@ -1,22 +1,24 @@
 import { useState, useRef } from 'react';
-import { Form, Input, DatePicker, InputNumber, Select, Button, message, Card, Row, Col, Space } from 'antd';
+import { Form, Input, DatePicker, InputNumber, Select, Button, message, Card, Row, Col, Space, Spin } from 'antd';
 import { AudioOutlined, SendOutlined } from '@ant-design/icons';
 // Dayjs导入已移除
 import { useAppDispatch, useAppSelector } from '../store';
 import { generateTravelPlan, type TravelPreference } from '../store/slices/travelSlice';
 import { SpeechRecognizer } from '../services/xfyun';
+import aiTravelGenerator from '../services/aiTravelGenerator';
 
 const { TextArea } = Input;
 const { Option } = Select;
 
 interface TravelPlannerFormProps {
-  onPlanGenerated?: () => void;
+  onPlanGenerated?: (responseData?: any) => void;
 }
 
 const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }) => {
   const [form] = Form.useForm();
   const [isRecording, setIsRecording] = useState(false);
   const [recognizedText, setRecognizedText] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
   const speechRecognizerRef = useRef<SpeechRecognizer | null>(null);
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(state => state.user); // 获取当前用户信息
@@ -84,6 +86,7 @@ const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }
   // 处理表单提交
   const onFinish = async (values: any) => {
     try {
+      setIsGenerating(true);
       // 准备行程偏好数据
       const travelPreference: TravelPreference = {
         destination: values.destination,
@@ -100,8 +103,12 @@ const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }
         userId: user?.id 
       })).unwrap();
       
+      // 获取AI生成器实例以获取API响应数据
+      const aiGenerator = aiTravelGenerator;
+      const apiResponseData = aiGenerator.getLastApiResponse();
+      
       message.success('行程规划生成成功！');
-      onPlanGenerated?.();
+      onPlanGenerated?.(apiResponseData);
       
       // 清空表单
       form.resetFields();
@@ -112,6 +119,8 @@ const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }
     } catch (error) {
       console.error('行程生成失败:', error);
       message.error('行程规划生成失败，请稍后重试');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -238,9 +247,20 @@ const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }
         </Row>
 
         <Form.Item>
-          <Button type="primary" htmlType="submit" icon={<SendOutlined />} className="w-full">
-            生成旅行计划
-          </Button>
+          <Space className="w-full justify-content-center">
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              icon={<SendOutlined />} 
+              loading={isGenerating}
+              className="min-w-[180px]"
+            >
+              生成旅行计划
+            </Button>
+            {isGenerating && (
+              <Spin tip="AI正在生成旅行计划，请稍候..." size="small" />
+            )}
+          </Space>
         </Form.Item>
       </Form>
     </Card>

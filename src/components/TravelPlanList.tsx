@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { List, Card, Button, Typography, Empty, Tag, Space, Popconfirm, message, Spin } from 'antd';
-import { CalendarOutlined, DollarOutlined, UserOutlined, EditOutlined, DeleteOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { CalendarOutlined, DollarOutlined, UserOutlined, DeleteOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { useAppSelector, useAppDispatch } from '../store';
 import { fetchTravelPlans, deleteTravelPlan, setCurrentPlan } from '../store/slices/travelSlice';
 import type { TravelPlan } from '../store/slices/travelSlice';

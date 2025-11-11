@@ -20,7 +20,7 @@ const TravelPlanDetail: React.FC = () => {
   useEffect(() => {
     // 如果没有找到行程，尝试从数据库获取
     if (!plan && id) {
-      dispatch(fetchTravelPlans());
+      dispatch(fetchTravelPlans(id));
     }
   }, [plan, id, dispatch]);
 

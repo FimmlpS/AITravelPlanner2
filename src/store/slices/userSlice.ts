@@ -184,6 +184,7 @@ const userSlice = createSlice({
         state.isLoading = false;
         state.user = null;
         state.isAuthenticated = false;
+        // 行程相关状态的清除在App.tsx的handleLogout函数中处理
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.isLoading = false;
