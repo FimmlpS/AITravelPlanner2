@@ -1,8 +1,9 @@
 import React from 'react';
-import { Card, Typography, List, Descriptions, Tag, Button, Empty, Space } from 'antd';
-import { CalendarOutlined, DollarOutlined, UserOutlined, ClockCircleOutlined, StarOutlined, CoffeeOutlined, HomeOutlined, CarOutlined, EditOutlined, DeleteOutlined, ShareAltOutlined } from '@ant-design/icons';
+import { Card, Typography, List, Descriptions, Tag, Button, Empty, Space, message } from 'antd';
+import { CalendarOutlined, DollarOutlined, UserOutlined, ClockCircleOutlined, StarOutlined, CoffeeOutlined, HomeOutlined, CarOutlined, EditOutlined, DeleteOutlined, ShareAltOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import { useAppSelector } from '../store';
 import { type TravelPlan, type DailyItinerary, type TravelActivity } from '../store/slices/travelSlice';
+import MapService from '../services/mapService';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -15,6 +16,67 @@ interface TravelPlanDetailProps {
 
 const TravelPlanDetail: React.FC<TravelPlanDetailProps> = ({ plan, onEdit, onDelete }) => {
   const currentPlan = plan || useAppSelector(state => state.travel.currentPlan);
+
+  // 处理导航功能
+  const handleNavigation = async (activity: TravelActivity) => {
+    try {
+      // 如果有地址
+      if (activity.address) {
+        // 检查是否有坐标，如果没有则尝试通过地理编码获取
+        if (!activity.coordinates || activity.coordinates.length !== 2) {
+          message.loading('正在获取位置信息...');
+          try {
+            // 尝试搜索POI获取精确位置
+            const pois = await MapService.searchPOI({
+              keyword: activity.name,
+              city: activity.address,
+              type: getActivityTypeForPOISearch(activity.type)
+            });
+            
+            if (pois && pois.length > 0) {
+              activity.coordinates = pois[0].location;
+              message.destroy();
+            }
+          } catch (error) {
+            console.warn('POI搜索失败，使用备用导航方案:', error);
+            message.destroy();
+          }
+        }
+        
+        // 构造导航URL
+        const destination = encodeURIComponent(activity.address);
+        const positionParam = activity.coordinates ? 
+          `&position=${activity.coordinates[0]},${activity.coordinates[1]}` : '';
+          
+        // 构建高德地图导航URL - 优先尝试打开原生应用
+        const navUrl = `https://uri.amap.com/marker?name=${encodeURIComponent(activity.name)}&address=${destination}${positionParam}&src=mypage&coordinate=gaode&callnative=1`;
+        
+        // 尝试打开原生应用或网页版
+        window.open(navUrl, '_blank');
+      } else {
+        message.error('该地点暂无地址信息，无法导航');
+      }
+    } catch (error) {
+      console.error('导航失败:', error);
+      message.error('导航服务暂时不可用');
+    }
+  };
+  
+  // 根据活动类型获取POI搜索类型
+  const getActivityTypeForPOISearch = (activityType: string): string => {
+    switch (activityType) {
+      case 'accommodation':
+        return '酒店';
+      case 'restaurant':
+        return '餐饮服务';
+      case 'attraction':
+        return '旅游景点';
+      case 'transport':
+        return '交通设施服务';
+      default:
+        return '';
+    }
+  };
 
   // 获取活动类型的图标
   const getActivityIcon = (type: string) => {
@@ -144,7 +206,16 @@ const TravelPlanDetail: React.FC<TravelPlanDetailProps> = ({ plan, onEdit, onDel
                         <StarOutlined />
                         <Text>{activity.rating}</Text>
                       </Space>
-                    )
+                    ),
+                    <Button
+                      key="navigation"
+                      type="link"
+                      icon={<EnvironmentOutlined />}
+                      onClick={() => handleNavigation(activity)}
+                      title="导航到该地点"
+                    >
+                      导航
+                    </Button>
                   ].filter(Boolean)}
                 >
                   <List.Item.Meta
