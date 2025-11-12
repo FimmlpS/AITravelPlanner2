@@ -41,3 +41,21 @@ export interface TravelPlan {
   status: 'draft' | 'planned' | 'ongoing' | 'completed';
   userId?: string;
 }
+
+// 账单记录接口
+export interface ExpenseRecord {
+  id: string;
+  planId: string;
+  amount: number; // 消费金额（单位：分）
+  reason: string; // 消费原因
+  expenseTime: string; // 消费时间
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 账单表单数据接口
+export interface ExpenseFormData {
+  amount: number;
+  reason: string;
+  expenseTime: string;
+}

@@ -164,8 +164,13 @@ export class SpeechRecognizer {
       return;
     }
 
-    if (data.data && data.data.result) {
+    if (data.data && data.data.result && Array.isArray(data.data.result.text)) {
       const text = data.data.result.text.join('');
+      const isFinal = data.data.status === 2;
+      this.onResult?.(text, isFinal);
+    } else if (data.data && data.data.result && typeof data.data.result.text === 'string') {
+      // 处理text为字符串的情况
+      const text = data.data.result.text;
       const isFinal = data.data.status === 2;
       this.onResult?.(text, isFinal);
     }

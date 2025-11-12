@@ -1,97 +1,103 @@
 # AI旅行规划师应用
 
-这是一个基于React和TypeScript开发的AI旅行规划师应用，帮助用户根据偏好生成详细的旅行计划。
+这是一个基于React和TypeScript开发的AI旅行规划师应用，帮助用户根据偏好生成详细的旅行计划，管理旅行账单，并提供地图查看功能。
 
-## 数据库设置
+## 安装与设置
 
-应用需要使用Supabase作为数据库存储。请按照以下步骤初始化数据库：
+### 环境要求
+- Node.js 16+
+- npm 或 yarn
+- Supabase 账户
 
-1. **配置环境变量**：
+### 安装步骤
+
+1. **克隆项目并安装依赖**
+   ```bash
+   git clone [repository-url]
+   cd AITravelPlanner2
+   npm install
+   ```
+
+2. **配置环境变量**
    - 复制`.env.example`文件为`.env`
-   - 填写您的Supabase URL和匿名密钥
+   - 填写所需的API密钥和配置信息：
+     ```
+     # Supabase配置
+     VITE_SUPABASE_URL=your-supabase-url
+     VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+     
+     # 科大讯飞API配置（用于语音输入）
+     VITE_XFYUN_APP_ID=your-xfyun-app-id
+     VITE_XFYUN_API_KEY=your-xfyun-api-key
+     VITE_XFYUN_API_SECRET=your-xfyun-api-secret
+     
+     # 高德地图API配置
+     VITE_GAODE_MAP_KEY=your-gaode-map-key
+     
+     # 阿里云百炼API配置（用于AI生成）
+     VITE_DASHSCOPE_API_KEY=sk-your-dashscope-api-key
+     ```
 
-2. **初始化数据库**：
+3. **初始化数据库**
    - 打开Supabase控制台
    - 导航到SQL编辑器
    - 复制`src/services/databaseSetup.sql`中的SQL语句并执行
+   - 详细设置指南请参考`src/services/SUPABASE_SETUP_GUIDE.md`
 
-3. **详细指南**：
-   - 请参考`src/services/SUPABASE_SETUP_GUIDE.md`获取完整的设置说明
+4. **运行开发服务器**
+   ```bash
+   npm run dev
+   ```
+
+5. **构建生产版本**
+   ```bash
+   npm run build
+   ```
+
+## 数据库设置
+
+应用使用Supabase作为数据库存储。数据库结构包括：
+- 行程表（travel_plans）
+- 账单记录表（expense_records）
+
+详细的数据库结构请查看`src/services/databaseSetup.sql`文件。
 
 ## 应用特性
-- 根据用户偏好智能生成旅行计划
-- 详细的每日行程安排
-- 响应式设计，支持各种设备
-- 优雅的错误处理机制
 
-Currently, two official plugins are available:
+- **智能旅行计划生成**：基于用户偏好自动生成详细的旅行计划
+- **旅行账单管理**：添加、编辑、删除和查看旅行相关费用
+- **语音输入功能**：支持通过语音输入账单信息
+- **地图视图**：显示行程地点和路线
+- **响应式设计**：适配各种设备屏幕尺寸
+- **数据持久化**：使用Supabase云数据库存储用户数据
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 技术栈
 
-## React Compiler
+- **前端框架**：React 18 + TypeScript
+- **状态管理**：Redux Toolkit
+- **UI组件库**：Ant Design
+- **数据库**：Supabase (PostgreSQL)
+- **构建工具**：Vite
+- **地图服务**：高德地图API
+- **AI服务**：阿里云百炼API
+- **语音识别**：科大讯飞API
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+## 项目结构
 
-Note: This will impact Vite dev & build performances.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+src/
+├── components/     # React组件
+├── services/       # API服务和数据库交互
+├── store/          # Redux状态管理
+├── types/          # TypeScript类型定义
+├── pages/          # 页面组件
+├── config/         # 配置文件
+└── assets/         # 静态资源
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 注意事项
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- 请确保所有必需的API密钥都已正确配置
+- 账单金额在数据库中以分为单位存储，但在UI上以元为单位显示
+- 首次使用需要初始化Supabase数据库结构
+- 开发环境运行在 http://localhost:5173（或自动分配的端口）

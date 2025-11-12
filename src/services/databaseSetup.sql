@@ -156,4 +156,62 @@ GRANT EXECUTE ON FUNCTION public.execute_sql TO authenticated;
 -- GRANT SELECT ON TABLE auth.users TO authenticated; -- 已移除，会导致权限错误
 -- GRANT SELECT ON TABLE auth.users TO anon; -- 已移除，会导致权限错误
 
+-- 创建账单记录表（expense_records）
+CREATE TABLE IF NOT EXISTS expense_records (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  plan_id UUID REFERENCES travel_plans(id) ON DELETE CASCADE,
+  amount INTEGER NOT NULL,  -- 消费金额（单位：分）
+  reason TEXT NOT NULL,     -- 消费原因
+  expense_time TIMESTAMP WITH TIME ZONE NOT NULL, -- 消费时间
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 为账单记录表添加触发器
+CREATE TRIGGER update_expense_records_updated_at
+BEFORE UPDATE ON expense_records
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 添加索引以提高查询性能
+CREATE INDEX IF NOT EXISTS idx_expense_records_plan_id ON expense_records(plan_id);
+CREATE INDEX IF NOT EXISTS idx_expense_records_expense_time ON expense_records(expense_time);
+
+-- 授予必要的权限
+GRANT ALL ON TABLE expense_records TO authenticated;
+
+-- 添加示例账单数据（关联到示例行程）
+INSERT INTO expense_records (plan_id, amount, reason, expense_time)
+SELECT 
+  (SELECT id FROM travel_plans WHERE title = '示例行程 - 北京三日游' LIMIT 1),
+  12000, -- 120元
+  '故宫门票',
+  NOW() - INTERVAL '1 day'
+WHERE EXISTS (SELECT 1 FROM travel_plans WHERE title = '示例行程 - 北京三日游')
+AND NOT EXISTS (SELECT 1 FROM expense_records LIMIT 1);
+
+-- 更新travel_plans表中的spent_budget触发器
+CREATE OR REPLACE FUNCTION update_travel_plan_spent_budget()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- 更新对应行程的已花费预算
+  UPDATE travel_plans
+  SET spent_budget = (
+    SELECT COALESCE(SUM(amount), 0)
+    FROM expense_records
+    WHERE plan_id = NEW.plan_id
+  )
+  WHERE id = NEW.plan_id;
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- 为expense_records表添加插入和更新触发器
+CREATE TRIGGER after_expense_records_insert_update
+AFTER INSERT OR UPDATE ON expense_records
+FOR EACH ROW EXECUTE FUNCTION update_travel_plan_spent_budget();
+
+CREATE TRIGGER after_expense_records_delete
+AFTER DELETE ON expense_records
+FOR EACH ROW EXECUTE FUNCTION update_travel_plan_spent_budget();
+
 -- 总结：在Supabase中，我们只需要管理我们自己创建的表的索引和权限

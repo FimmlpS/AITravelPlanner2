@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Form, Input, DatePicker, InputNumber, Select, Button, message, Card, Row, Col, Space, Spin } from 'antd';
 import { AudioOutlined, SendOutlined } from '@ant-design/icons';
+import VoiceInputButton from './VoiceInputButton';
 // Dayjs导入已移除
 import { useAppDispatch, useAppSelector } from '../store';
 import { generateTravelPlan, type TravelPreference } from '../store/slices/travelSlice';
@@ -22,6 +23,13 @@ const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }
   const speechRecognizerRef = useRef<SpeechRecognizer | null>(null);
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(state => state.user); // 获取当前用户信息
+
+  // 处理单个字段的语音识别结果
+  const handleFieldSpeechResult = (fieldName: string, text: string) => {
+    form.setFieldsValue({
+      [fieldName]: text
+    });
+  };
 
   // 旅行偏好选项
   const preferenceOptions = [
@@ -167,7 +175,13 @@ const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }
               name="destination"
               rules={[{ required: true, message: '请输入目的地' }]}
             >
-              <Input placeholder="例如：北京、上海、东京" />
+              <Space style={{ width: '100%' }}>
+                <Input placeholder="例如：北京、上海、东京" style={{ width: 'calc(100% - 40px)' }} />
+                <VoiceInputButton 
+                  fieldName="destination" 
+                  onResult={handleFieldSpeechResult} 
+                />
+              </Space>
             </Form.Item>
           </Col>
         </Row>
@@ -241,7 +255,19 @@ const TravelPlannerForm: React.FC<TravelPlannerFormProps> = ({ onPlanGenerated }
               label="其他需求描述（可选）"
               name="description"
             >
-              <TextArea rows={4} placeholder="可以描述更多细节，如：特殊饮食要求、必须参观的景点等" />
+              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                <TextArea 
+                  rows={4} 
+                  placeholder="可以描述更多细节，如：特殊饮食要求、必须参观的景点等" 
+                  style={{ width: 'calc(100% - 40px)', marginRight: 8 }}
+                />
+                <div style={{ marginTop: 4 }}>
+                  <VoiceInputButton 
+                    fieldName="description" 
+                    onResult={handleFieldSpeechResult} 
+                  />
+                </div>
+              </div>
             </Form.Item>
           </Col>
         </Row>

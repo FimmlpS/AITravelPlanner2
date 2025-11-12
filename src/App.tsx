@@ -6,6 +6,7 @@ import './App.css'
 import TravelPlannerForm from './components/TravelPlannerForm'
 import TravelPlanDetail from './components/TravelPlanDetail'
 import TravelPlanList from './components/TravelPlanList'
+import ExpenseStatistics from './components/ExpenseStatistics'
 import AuthPage from './pages/AuthPage'
 import { useAppDispatch, useAppSelector } from './store'
 import { fetchTravelPlans, clearTravelState } from './store/slices/travelSlice'
@@ -139,9 +140,7 @@ const MainApp = () => {
     } else if (activeTab === '3') {
       return (
         <div className="content-container">
-          <Title level={2}>费用统计</Title>
-          <p>这里将显示您的旅行费用统计。</p>
-          {/* 后续将实现费用统计功能 */}
+          <ExpenseStatistics />
         </div>
       );
     } else if (activeTab === '4') {
